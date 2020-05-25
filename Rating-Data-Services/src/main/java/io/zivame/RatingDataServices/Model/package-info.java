@@ -1,0 +1,1 @@
+package io.zivame.RatingDataServices.Model;
