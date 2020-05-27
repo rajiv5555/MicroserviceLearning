@@ -20,6 +20,8 @@ import io.zivame.MovieCatalogServices.Model.CatalogItem;
 import io.zivame.MovieCatalogServices.Model.Movie;
 import io.zivame.MovieCatalogServices.Model.Rating;
 import io.zivame.MovieCatalogServices.Model.UserRating;
+import io.zivame.MovieCatalogServices.service.MovieService;
+import io.zivame.MovieCatalogServices.service.UserService;
 
 /**
  * @author rajivranjan
@@ -33,6 +35,12 @@ public class MovieController {
 	
 	@Autowired
 	WebClient.Builder webClientBuilder;
+	
+	@Autowired
+	private MovieService movieService;
+	
+	@Autowired
+	private UserService userService;
 	
 	@GetMapping("/v1/catalog/{userId}")
 	@HystrixCommand(fallbackMethod = "getFallBackCatalog")
@@ -75,7 +83,6 @@ public class MovieController {
 	}
 	
 	@GetMapping("/v2/catalog/{userId}")
-	@HystrixCommand(fallbackMethod = "getFallBackCatalog")
 	public List<CatalogItem> getCatalogV2(@PathVariable("userId") String userId){
 
 		/*
@@ -83,10 +90,10 @@ public class MovieController {
 		 * Rating("456", 5+"") );
 		 */
 		
-		UserRating ratings=restTemplate.getForObject("http://MovieRatingService/ratings/"+userId,UserRating.class);
+		UserRating ratings=userService.getUserRatingrestTemplate(userId);
 		
 		return ratings.getUserRatings().stream().map(rating->{
-			Movie movie=restTemplate.getForObject("http://MovieInfoService/movie/"+rating.getMovieId(),Movie.class);
+			Movie movie=movieService.getMovieInforestTemplate(rating.getMovieId());
 		    return new CatalogItem(movie.getName()," good movie ", rating.getRatingNo());
 		}).collect(Collectors.toList());
 		
@@ -94,28 +101,17 @@ public class MovieController {
 	}
 	
 	@GetMapping("/v2/reactiveCatalog/{userId}")
-	@HystrixCommand(fallbackMethod = "getFallBackCatalog")
 	public List<CatalogItem> getReactiveCatalogV2(@PathVariable("userId") String userId){
 
 		/*List<Rating> ratings= Arrays.asList(
 		  new Rating("1234", 4+""),
 		  new Rating("456", 5+"")
 		);*/
-		UserRating ratings=webClientBuilder.build()
-				                          .get()
-				                          .uri("http://MovieRatingService/ratings/"+userId)
-				                          .retrieve()
-				                          .bodyToMono(UserRating.class)
-				                          .block();
+		UserRating ratings=userService.getUserRatingWebClient(userId);
 		
 		return ratings.getUserRatings().stream().map(rating->{
 			//Movie movie=restTemplate.getForObject("http://localhost:8082/movie/"+rating.getMovieId(),Movie.class);
-		    Movie movie= webClientBuilder.build()
-		                     .get()
-		                     .uri("http://MovieInfoService/movie/"+rating.getMovieId())
-		                     .retrieve()
-		                     .bodyToMono(Movie.class)
-		                     .block();
+		    Movie movie=movieService.getMovieInfoWebClient(rating.getMovieId());
 			return new CatalogItem(movie.getName()," good movie ", rating.getRatingNo());
 		}).collect(Collectors.toList());
 		
